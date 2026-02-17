@@ -1,11 +1,10 @@
 // Initialization
-const url = 'https://raw.githubusercontent.com/Ethan76167/TRIA.OS-Difficulty-List/refs/heads/main/migrated.md';
+const link = "https://raw.githubusercontent.com/Ethan76167/TRIA.OS-Difficulty-List/refs/heads/main/data"
 var result, fetched
 var listArray = []
 
 // Fetch data
-//disabled for now
-fetch(url)
+fetch(link)
 .then(function(response) {
     response.text().then(function(text) {
     result = text;
@@ -13,45 +12,97 @@ fetch(url)
     compileData()
 });});
 
+// Extract DATA!
+function extractVideoId(url) {
+    var regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    var match = url.match(regExp);
+
+    if (match && match[2].length == 11) {
+        return match[2];
+    } else {
+        return null;
+    }
+}
+
 // Compile data
 function compileData() {
     var separated = result.split('\n')
     var iteration
 
-    // Phase 1: Get all lines
+    // Get valid lines
     for (let i = 0; i < separated.length; i++) {
         iteration = separated[i]
-        
-        // Phase 2: Get all valid lines
         if (iteration[0] + iteration[1] == "//") {
-            
-            var Overview = separated[i].split(' | ')
-            var Meta = separated[i + 2].split(' | ')
-            var Victors = separated[i + 4].split(', ')
-
-            // Remove the // in the first data in Overview
-            Overview[0] = Overview[0].substring(3)
-            
-            // Phase
-            listArray.push(
-                {
-                    Overview: Overview,
-                    Meta: Meta,
-                    Victors: Victors
+            var newArray = {
+                Overview: {
+                    Rating: "",
+                    Name: "",
+                    Creators: "",
+                    ID: "",
+                    Video: ""
                 },
-            )
-        }
-    }
+                Meta: {
+                    SkillCode: "",
+                    HasAwards: "",
+                    HasMedal: "",
+                    MapLength: "",
+                    Instances: "",
+                    Buttons: "",
+                    Music: "",
+                    Date: ""
+                },
+                Description: "",
+                Victors: ""
+            }
 
-    // Extract DATA!
-    function extractVideoId(url) {
-        var regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-        var match = url.match(regExp);
+            // GET: Overview
+            var rating = iteration.match(/[\d.]+[^\]]/g)
+            newArray.Overview.Rating = rating[rating.length - 1]
 
-        if (match && match[2].length == 11) {
-            return match[2];
-        } else {
-            return null;
+            newArray.Overview.Creators = separated[i + 2].substring(10)
+            newArray.Overview.Creators[0] = newArray.Overview.Creators[0].substring(10)
+            
+            newArray.Overview.ID = separated[i + 1].substring(4)
+            newArray.Overview.Video = extractVideoId(separated[i + 3].substring(6))
+            newArray.Overview.Name = iteration.match(/[^// ]+[^]+[^ \[+\d+.+\]]/g)[0]
+
+            // GET: Technical
+            newArray.Meta.Date = separated[i + 6].substring(11)
+            newArray.Meta.Music = separated[i + 7].substring(7)
+            newArray.Meta.MapLength = separated[i + 8].substring(8)
+            newArray.Meta.Instances = separated[i + 9].substring(11)
+            newArray.Meta.Buttons = separated[i + 10].substring(9)
+
+            // GET: Select
+            var skillCode = ""
+            var awards = 0
+
+            if (separated[i + 14].substring(3, 4) == "#") {skillCode = skillCode + "0"}
+            if (separated[i + 15].substring(3, 4) == "#") {skillCode = skillCode + "1"}
+            if (separated[i + 16].substring(3, 4) == "#") {skillCode = skillCode + "2"}
+            if (separated[i + 17].substring(3, 4) == "#") {skillCode = skillCode + "3"}
+            if (separated[i + 18].substring(3, 4) == "#") {skillCode = skillCode + "4"}
+            if (separated[i + 19].substring(3, 4) == "#") {skillCode = skillCode + "5"}
+            
+            if (separated[i + 21].substring(3, 4) == "#") {awards = 1}
+            if (separated[i + 22].substring(3, 4) == "#") {awards = 2}
+
+            if (separated[i + 24].substring(3, 4) == "#") {newArray.Meta.HasMedal = "Yes"}
+            else {newArray.Meta.HasMedal = "No"}
+
+            newArray.Meta.SkillCode = skillCode
+            newArray.Meta.HasAwards = awards
+
+            // GET: Description
+            newArray.Description = separated[i + 27]
+
+            // GET: Victors
+            try {
+                newArray.Victors = separated[i + 30].split(", ")
+            } catch (error) {console.log("hi")}
+
+            // Push list
+            listArray.push(newArray)
         }
     }
 
@@ -73,7 +124,7 @@ function compileData() {
         var mapData = listArray[i]
 
         // Check if current difficulty has changed
-        var mainDifficulty = Math.floor(mapData["Overview"][0])
+        var mainDifficulty = Math.floor(mapData.Overview.Rating)
 
         if (mainDifficulty != (currentDifficulty + 1)) {
             currentDifficulty = mainDifficulty - 1
@@ -91,27 +142,27 @@ function compileData() {
         var lowerDetails = map.querySelector(".infoLayout").querySelector("#lowerDetails")
 
         upperDetails.querySelector("#rating").style.color = diffColors[6 - currentDifficulty]
-        upperDetails.querySelector("#rating").innerText = "#" + (i + 1) + " [" + mapData["Overview"][0] + "] "
-        upperDetails.querySelector("#name").innerText = mapData["Overview"][1]
+        upperDetails.querySelector("#rating").innerText = "#" + (i + 1) + " [" + mapData.Overview.Rating + "] "
+        upperDetails.querySelector("#name").innerText = mapData.Overview.Name
         
-        lowerDetails.querySelector("#creators").innerText = "by " + mapData["Overview"][2]
-        lowerDetails.querySelector("#id").innerText = mapData["Overview"][3]
+        lowerDetails.querySelector("#creators").innerText = "by " + mapData.Overview.Creators
+        lowerDetails.querySelector("#id").innerText = mapData.Overview.ID
 
-        map.querySelector(".youtubeVideo").src = "https://www.youtube.com/embed/" + extractVideoId(mapData["Overview"][4])
+        map.querySelector(".youtubeVideo").src = "https://www.youtube.com/embed/" + mapData.Overview.Video
 
         var mapLabels = map.querySelector(".infoLayout").querySelector("#labels")
-        mapLabels.querySelector("#awards").src = "../assets/TRIA/Awards/" + mapData["Meta"][1] + ".png"
+        mapLabels.querySelector("#awards").src = "../assets/TRIA/Awards/" + mapData.Meta.HasAwards + ".png"
 
         // Awards
-        switch (mapData["Meta"][1]) {
+        switch (mapData.Meta.HasAwards) {
             
-            case "1":
+            case 1:
                 map.querySelector(".youtubeVideo").style.border = "2px solid"
                 map.querySelector(".youtubeVideo").style.borderImageSlice = "1"
                 map.querySelector(".youtubeVideo").style.borderImage = "linear-gradient(45deg, #ff00aa 0%, #ffee00 100%) 1"
                 
                 break;
-            case "2":
+            case 2:
                 map.querySelector(".youtubeVideo").style.border = "2px solid"
                 map.querySelector(".youtubeVideo").style.borderImageSlice = "1"
                 map.querySelector(".youtubeVideo").style.borderImage = "linear-gradient(45deg, #ff6600 0%, #eeff00 100%) 1"
@@ -124,52 +175,43 @@ function compileData() {
                 break;
         }
 
+        for (let i = 0; i < mapData.Meta.SkillCode.length; i++) {
+            mapLabels.querySelector("#skill" + mapData.Meta.SkillCode[i]).style.opacity = "100%"
+        }
+
         // Expanded Layout
-        map.querySelector("#titleBlock").innerText = mapData["Overview"][1]
+        map.querySelector("#titleBlock").innerText = mapData.Overview.Name
 
         // Victors
-        if (mapData["Victors"]) {
+        if (mapData.Victors) {
             map.querySelector("#tenVictors").querySelector(".victorPlaceholder").style.display = "none"
 
             for (let i = 0; i < mapData["Victors"].length; i++) {
                 map.querySelector("#tenVictors").querySelector("#v" + i).style.display = "flex"
-                map.querySelector("#tenVictors").querySelector("#v" + i).innerText = "[#" + (i + 1) + "] " + mapData["Victors"][i]
+                map.querySelector("#tenVictors").querySelector("#v" + i).innerText = "[#" + (i + 1) + "] " + mapData.Victors[i]
             }
         }
 
-        for (let i = 0; i < mapData["Meta"][0].length; i++) {
-            mapLabels.querySelector("#skill" + mapData["Meta"][0][i]).style.opacity = "100%"
-        }
+        // Technical
+        map.querySelector("#stats").querySelector("#buttonCount").querySelector("p").innerText = mapData.Meta.Buttons
+        map.querySelector("#stats").querySelector("#instances").querySelector("p").innerText = mapData.Meta.Instances
+        map.querySelector("#stats").querySelector("#mapLength").querySelector("p").innerText = mapData.Meta.MapLength
         
+        // Description
+        map.querySelector("#description").querySelector("#descriptionText").innerText = mapData.Description
+        map.querySelector("#description").querySelector("#music").innerText = mapData.Meta.Music
+        map.querySelector("#description").querySelector("#date").innerText = mapData.Meta.Date
+        
+        // Medal
+        map.querySelector("#medalStatus").querySelector("img").src = "../assets/TRIA/Medal/" + mapData.Meta.HasMedal + ".png"
+
+        // Merge into list
         document.querySelector("#listScroller").appendChild(map)
     }
 
     console.log(listArray)
     console.log("Complete! Loaded " + listArray.length + " maps.")
 }
-
-var dataLog = [
-    {
-        Overview: {
-            Rating: "",
-            Name: "",
-            Creators: "",
-            ID: "",
-            Video: ""
-        },
-        Meta: {
-            SkillCode: "",
-            HasAwards: "",
-            HasMedal: "",
-            MapLength: "",
-            Instances: "",
-            Buttons: "",
-            Music: "",
-            Date: ""
-        },
-        Victors: ""
-    }
-]
 
 // Expand information
 var currentlyExpanded
